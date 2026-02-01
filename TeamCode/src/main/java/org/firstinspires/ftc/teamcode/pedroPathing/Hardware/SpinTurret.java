@@ -6,13 +6,18 @@ import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.IMU;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import com.qualcomm.robotcore.hardware.CRServo;
+import com.qualcomm.hardware.bosch.BNO055IMU;
 
 public class SpinTurret {
     private CRServo SpinTourelle;
     private double powerarrettourelle = 0.0;
     private double powertournertourelle =1.0;
     public IMU imuTourelle;
+    private boolean turretZeroDone = false;
+    private long imuReadySince = 0;
     double erreur;
+
+    private BNO055IMU boschImu;
 
     private enum spintourelleetat {
         IDLE,
@@ -41,6 +46,9 @@ public class SpinTurret {
         );
         imuTourelle.initialize(parameters);
         imuTourelle.resetYaw();
+
+
+
 
     }
     public void update() {
@@ -131,5 +139,8 @@ public class SpinTurret {
     public void resetImuToutelle(){
         imuTourelle.resetYaw();
     }
+
+
+
 
 }

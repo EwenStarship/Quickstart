@@ -1,12 +1,15 @@
 package org.firstinspires.ftc.teamcode.pedroPathing.TeleOp.Debug;
 
+import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
-@TeleOp
+@Disabled
+@TeleOp (name="Shooter 2 PIDF", group="debug")
+
 public class Test1MoteurShooter2 extends OpMode {
 
         private static final int TICKS_PER_REV_6000 = 28; // GoBilda 5203 ratio 1:1

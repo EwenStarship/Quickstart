@@ -7,8 +7,8 @@ import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.PIDFCoefficients;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
-@TeleOp
-public class PIDFMoteurShooter1 extends OpMode {
+@TeleOp (name="PIDF Motors", group="debug")
+public class FlywheelPIDTuner extends OpMode {
 
     private static final int TICKS_PER_REV_6000 = 28; // GoBilda 5203 ratio 1:1
 
@@ -17,13 +17,13 @@ public class PIDFMoteurShooter1 extends OpMode {
 
     private ElapsedTime timeretat = new ElapsedTime();
     private double currentTargetVel = 0.0;
-    public double highVelocity = 5000;
+    public double highVelocity = 4950;
     public double lowVelocity = 3500;
     double curTargetVelocity = highVelocity;
     double F = 0;
     double P = 0;
 
-    double[] stepSizes = {10.0, 1.0, 0.2, 0.001, 0.001};
+    double[] stepSizes = {10.0, 1.0, 0.1, 0.001, 0.0001};
     int stepIndex = 1;
 
 
@@ -39,9 +39,18 @@ public class PIDFMoteurShooter1 extends OpMode {
 
         Shooter = hardwareMap.get(DcMotorEx.class, "Shooter");
         Shooter.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        PIDFCoefficients pidfCoefficients = new PIDFCoefficients(P, 0, 0, F);
         Shooter.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+
+        Shooter2 = hardwareMap.get(DcMotorEx.class, "Shooter2");
+        Shooter2.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        Shooter2.setDirection(DcMotor.Direction.REVERSE);
+        Shooter2.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+
+        PIDFCoefficients pidfCoefficients = new PIDFCoefficients(P, 0, 0, F);
         Shooter.setPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER, pidfCoefficients);
+        Shooter2.setPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER, pidfCoefficients);
+        telemetry.addLine("init complete");
+
 
     }
 
@@ -100,6 +109,10 @@ public class PIDFMoteurShooter1 extends OpMode {
         double ticksPerSec = Shooter.getVelocity();
         return (ticksPerSec * 60) / TICKS_PER_REV_6000;
     }
+    public double getShooter2VelocityRPM() {
+        double ticksPerSec = Shooter2.getVelocity();
+        return (ticksPerSec * 60) / TICKS_PER_REV_6000;
+    }
 
     @Override
     public void loop() {
@@ -130,13 +143,16 @@ public class PIDFMoteurShooter1 extends OpMode {
             //setnew PIDF coefficient
             PIDFCoefficients pidfCoefficients = new PIDFCoefficients(P, 0, 0, F);
             Shooter.setPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER, pidfCoefficients);
+            Shooter2.setPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER, pidfCoefficients);
 
             Shooter.setVelocity((curTargetVelocity));
+            Shooter2.setVelocity((curTargetVelocity));
 
             double curVelocity = Shooter.getVelocity();
             double error = curTargetVelocity - curVelocity;
 
-            telemetry.addData("Shooter RPM", getShooterVelocityRPM());
+            telemetry.addData("Shooter 1 RPM", getShooterVelocityRPM());
+            telemetry.addData("Shooter 2 RPM", getShooter2VelocityRPM());
             telemetry.addData("Target Velocity", curVelocity);
             telemetry.addData("Error", error);
             telemetry.addData("tuning P", P);

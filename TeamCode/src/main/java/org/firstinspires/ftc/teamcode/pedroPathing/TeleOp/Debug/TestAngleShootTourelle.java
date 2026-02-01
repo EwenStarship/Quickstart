@@ -76,7 +76,7 @@ public class TestAngleShootTourelle extends OpMode {
     @Override
         public void loop() {
             //tourelle.allerVersAngle(45);
-            double[] presets = {0.12, 0.25, 0.30, 0.40, 0.52};
+            double[] presets = {0.12, 0.25, 0.48, 0.62, 0.65};
             if (gamepad2.x && !lastX) {
                 positionAngleshoot = (positionAngleshoot + 1) % presets.length;
                 angleShooter.angleShoot(presets[positionAngleshoot]); }

@@ -28,7 +28,7 @@ import org.firstinspires.ftc.teamcode.pedroPathing.navigation.Camerahusky;
 import java.util.function.Supplier;
 
 @Configurable
-@TeleOp (name="TeleOp Competiton Bleu Camera", group="Competition")
+@TeleOp (name="TeleOp - BLUE Bleu Camera", group="Competition")
 public class TeleOpDecodeBleuCamera extends OpMode {
     Camerahusky Camera = new Camerahusky();
     private double ajustementcamera = 1.5; //valeur d'ajustement caméra (erreur) a changer si probleme
@@ -60,6 +60,10 @@ public class TeleOpDecodeBleuCamera extends OpMode {
 
     private double distanceCamerajustee = 0.0 ;
     private double distanceCameramesuree = 0.0 ;
+
+    private boolean turretZeroDone = false;
+    private long imuReadySince = 0;
+
 
     private static final double SLOW_MULT = 0.35; // vitesse par défaut (lent)
     private static final double BOOST_MULT = 1.0; // plein régime quand on appuie
@@ -278,7 +282,7 @@ public class TeleOpDecodeBleuCamera extends OpMode {
        // A : Position 4 la plus loin bouton 1 le plus proche co driver
        if (gamepad2.aWasPressed()) {
                 //fireIfReady(0.17, 3750, shotsMode);
-                 fireIfReady(0.44, 4400, shotsMode);
+                 fireIfReady(0.45, 4400, shotsMode);
        }
 
         // X : Bouton Gauche Boutton 0  reset de l'IMU de la tourelle
@@ -302,9 +306,9 @@ public class TeleOpDecodeBleuCamera extends OpMode {
                 firefondTerrainAuto(-60.0,0.55,4850);
             }
 
+
         if (gamepad2.dpadRightWasPressed()){
-                tireurManager.setState(TireurManagerTeleop.TirState.IDLE);
-                shooter.setShooterTargetRPM(0);
+            tireurManager.cancelTir();
 
             }
 
@@ -312,7 +316,7 @@ public class TeleOpDecodeBleuCamera extends OpMode {
             afficheurRight.setBleu();
             distanceCamerajustee = Camera.getDistanceFiableCm();
             distanceCameramesuree = Camera.getEstimatedDistanceCm();
-            telemetry.addData("Distancemesurée", distanceCameramesuree);
+            //telemetry.addData("Distancemesurée", distanceCameramesuree);
             telemetry.addData("Distance_camera_apriltag", distanceCamerajustee);
             telemetry.update();
             //if (distanceCamerajustee > 0 && distanceCamerajustee < 70) {
@@ -350,7 +354,7 @@ public class TeleOpDecodeBleuCamera extends OpMode {
 
             if (Camera.hasTag() == true) {
                 distanceCamerajustee = (Camera.getDistanceFiableCm())/100;
-                double rpmDouble = 541.62 * distanceCamerajustee + 3210.34;//ajout 20
+                double rpmDouble = 551.62 * distanceCamerajustee + 3210.34;//ajout 20
                 int rpm = (int) Math.round(rpmDouble);
 
 
@@ -372,7 +376,7 @@ public class TeleOpDecodeBleuCamera extends OpMode {
                 }
 
                 if (distanceCamerajustee > 1.10 && distanceCamerajustee < 1.50) {
-                    fireIfReady(0.35, rpm, shotsMode); //3900
+                    fireIfReady(0.37, rpm, shotsMode); //3900
                     distanceCamerajustee = 0;
                     distanceCameramesuree =0;
                     rpm = 0;
@@ -380,7 +384,7 @@ public class TeleOpDecodeBleuCamera extends OpMode {
                 }
 
                 if (distanceCamerajustee > 1.50 && distanceCamerajustee < 2.50) {
-                    fireIfReady(0.44, rpm, shotsMode); //4200
+                    fireIfReady(0.46, rpm, shotsMode); //4200
                     distanceCamerajustee = 0;
                     distanceCameramesuree =0;
                     rpm =0;
@@ -404,7 +408,7 @@ public class TeleOpDecodeBleuCamera extends OpMode {
         //telemetryM.debug("automatedDrive", automatedDrive);
         //telemetry.addData("angle Tourelle actuel", tourelle.lectureangletourelle());
         //telemetry.addData("AngleShoot", positionAngleshoot);
-        //telemetry.addData("RPM", intake.getRPM());
+        telemetry.addData("RPM intake", intake.getRPM());
         //telemetry.addData("DistanceBalle", intake.getCapteurDistance());
         //telemetry.addData("Lum Indexeur", intake.getLumIndexeur());
         //telemetry.addData("Score", intake.getScore());
@@ -412,7 +416,7 @@ public class TeleOpDecodeBleuCamera extends OpMode {
         //telemetry.addData("Pale detectée", indexeur.detectionpale());
         //for (int i = 0; i < 3; i++) { telemetry.addData("Compartiment " + i, indexeur.getCouleurCompartiment(i)); }
         //telemetry.addData("État tireur manager", tireurManager.getState());
-        //telemetry.addData("Shooter RPM", shooter.getShooterVelocityRPM());
+        telemetry.addData("Shooter RPM", shooter.getShooterVelocityRPM());
         //telemetry.addData("Index rotation finie", indexeur.isRotationTerminee());
 
         telemetry.update();

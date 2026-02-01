@@ -31,12 +31,12 @@ public class Shooter {
 
     public void init(@NonNull HardwareMap hwMap) {
 
-        double maxVelRPM = 4700.0;
+        double maxVelRPM = 5000.0;
         double maxVel = (maxVelRPM * TICKS_PER_REV_6000) / 60.0;
-        double kF = 1;
-        double kP = 6.0; // Agressif car systeme rapide
+        double kF = 15.5;
+        double kP = 0.002; // Agressif car systeme rapide
         double kI = 0.0 ; // nuisible voir inutile avec shooter
-        double kD = 0.4 ; // amortissement raisonnable
+        double kD = 0.0 ; // amortissement raisonnable
 
         this.indexeur = indexeur;
         Shooter = hwMap.get(DcMotorEx.class, "Shooter");
@@ -106,12 +106,26 @@ public class Shooter {
 
         // Méthode lire la vitesse du moteur de lancement Balle shooter et affichage
         public double getShooterVelocityRPM() {
-            double ticksPerSec = Shooter.getVelocity();
-            return (ticksPerSec * 60) / TICKS_PER_REV_6000;
+            double v1 = Shooter.getVelocity();
+            double v2 = Shooter2.getVelocity();
+
+            double rpm1 = (v1 * 60.0) / TICKS_PER_REV_6000;
+            double rpm2 = (v2 * 60.0) / TICKS_PER_REV_6000;
+
+            double diff = Math.abs(rpm1 - rpm2);
+
+            // Si un moteur décroche vraiment, on ignore le plus lent
+            if (diff > 350) {   // seuil adapté pour 3800–4900 RPM
+                return Math.max(rpm1, rpm2);
+            }
+
+            // Sinon moyenne normale = vitesse réelle flywheel
+            return (rpm1 + rpm2) / 2.0;
         }
     public void setIndexeur(Indexeur indexeur) {
         this.indexeur = indexeur;
     }
+
 
 
     }

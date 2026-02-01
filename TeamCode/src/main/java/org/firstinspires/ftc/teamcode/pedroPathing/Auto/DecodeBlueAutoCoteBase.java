@@ -20,7 +20,7 @@ import org.firstinspires.ftc.teamcode.pedroPathing.Hardware.SpinTurret;
 import org.firstinspires.ftc.teamcode.pedroPathing.logique.TireurManager;
 
 
-@Autonomous (name="bleuCoteBase", group="Competition")
+@Autonomous (name="BLEU--BASE", group="Competition")
 public class DecodeBlueAutoCoteBase extends OpMode {
 
     private Follower follower;
@@ -40,6 +40,8 @@ public class DecodeBlueAutoCoteBase extends OpMode {
     private TireurManager tireurManager;
 
     private boolean shotsTriggered = false;
+    private boolean turretZeroDone = false;
+    private long imuReadySince = 0;
 
     public enum PathState {
         //Start Position -End Position
@@ -62,19 +64,19 @@ public class DecodeBlueAutoCoteBase extends OpMode {
     }
     PathState pathState;
 
-    private final Pose startPose = new Pose(56.00,8.00, Math.toRadians(180));
-    private final Pose firstshootPose = new Pose(54.00,21.00,Math.toRadians(180));
+    private final Pose startPose = new Pose(46.00,8.00, Math.toRadians(180));
+    private final Pose firstshootPose = new Pose(44.00,17.50,Math.toRadians(180));
 
-    private final Pose drivetoligne3= new Pose (45.00, 34.00, Math.toRadians(180));
+    private final Pose drivetoligne3= new Pose (43.00, 34.00, Math.toRadians(180));
 
-    private final Pose avalerballeRangee3 = new Pose (17.00, 35.00, Math.toRadians(180));
+    private final Pose avalerballeRangee3 = new Pose (13.00, 35.00, Math.toRadians(180));
 
-    private final Pose Shoot2 = new Pose (54.00, 23.00, Math.toRadians(180));
+    private final Pose Shoot2 = new Pose (44.00, 23.00, Math.toRadians(180));
 
-    private final Pose drivetoligne2= new Pose (45.00, 58.00, Math.toRadians(180));
+    private final Pose drivetoligne2= new Pose (43.00, 58.00, Math.toRadians(180));
 
-    private final Pose avalerballeRangee2= new Pose (20.00, 59.00, Math.toRadians(180));
-    private final Pose Shoot3 = new Pose (54.00, 83.00, Math.toRadians(180));
+    private final Pose avalerballeRangee2= new Pose (13.00, 59.00, Math.toRadians(180));
+    private final Pose Shoot3 = new Pose (44.00, 83.00, Math.toRadians(180));
 
     private final Pose Gate= new Pose (20, 83, Math.toRadians(180));
 
@@ -146,12 +148,12 @@ public class DecodeBlueAutoCoteBase extends OpMode {
             case PremierTir: // Premier tir en cours
                 //intake.update();
                 //indexeur.update();
-                if (!follower.isBusy()) {
+                if (!follower.isBusy()&& pathTimer.getElapsedTimeSeconds()>0.7) {
                     // avons nous deja demandé des tirs :
 
                     if (!shotsTriggered){
                         tireurManager.startTirAuto(// Lancer tir automatique
-                                -63,   // angle tourelle (exemple)
+                                -60,   // angle tourelle (exemple)
                                 0.5,  // angle shooter
                                 4770   // RPM
                         );
@@ -184,7 +186,7 @@ public class DecodeBlueAutoCoteBase extends OpMode {
                 indexeur.update();
 
                 if (!follower.isBusy()) {// attendre que le path soit fini
-                    follower.followPath(driveAvalerpremiereLigne,0.3,true); // on avance doucement pour avaler les balles
+                    follower.followPath(driveAvalerpremiereLigne,0.45,true); // on avance doucement pour avaler les balles
                     setPathState(PathState.DrivedeuxiemeShoot);
                     }
                 break;
@@ -199,10 +201,10 @@ public class DecodeBlueAutoCoteBase extends OpMode {
                 break;
 
             case deuxiemetir:
-                if (!follower.isBusy()) {
+                if (!follower.isBusy()& pathTimer.getElapsedTimeSeconds()>0.7) {
                     if (!shotsTriggered) { // deuxieme période de tir
                         tireurManager.startTirAuto(// Lancer tir automatique
-                                -64,   // angle tourelle (exemple)
+                                -60,   // angle tourelle (exemple)
                                 0.50,  // angle shooter
                                 4770   // RPM
                         );
@@ -232,7 +234,7 @@ public class DecodeBlueAutoCoteBase extends OpMode {
                 intake.update(); // mise à jour de nos systemes (constate que toutes les balles sont parties)
                 indexeur.update();
                 if (!follower.isBusy()) {
-                    follower.followPath(drivetavalerdeuxiemeligne, 0.30 , true);
+                    follower.followPath(drivetavalerdeuxiemeligne, 0.40 , true);
                     // TO DO demarer intake , tourner indexeur des dectetion balles)
                     telemetry.addLine("ramassage 2 terminé");
                     // transition to next state
@@ -253,12 +255,12 @@ public class DecodeBlueAutoCoteBase extends OpMode {
                 break;
 
             case troisiemetir:
-                if (!follower.isBusy()) {
+                if (!follower.isBusy()& pathTimer.getElapsedTimeSeconds()>0.7) {
                     // le robot est arrivé sur la troisieme position de tir :
 
                     if (!shotsTriggered){
                         tireurManager.startTirAuto(// Lancer tir automatique
-                                -45,   // angle tourelle (exemple)
+                                -47,   // angle tourelle (exemple)
                                 0.37,  // angle shooter
                                 3960   // RPM
                         );
@@ -305,6 +307,9 @@ public class DecodeBlueAutoCoteBase extends OpMode {
         opModeTimer = new Timer();
         opModeTimer.resetTimer();
 
+        tourelle = new SpinTurret();
+        tourelle.init(hardwareMap);
+
         follower = Constants.createFollower(hardwareMap);
         buildPaths();
         follower.setPose(startPose);
@@ -314,8 +319,7 @@ public class DecodeBlueAutoCoteBase extends OpMode {
         shooter = new Shooter();
         shooter.init(hardwareMap);
 
-        tourelle = new SpinTurret();
-        tourelle.init(hardwareMap);
+
 
         ServoAngleShoot = new AngleShooter();
         ServoAngleShoot.init(hardwareMap);
@@ -342,7 +346,10 @@ public class DecodeBlueAutoCoteBase extends OpMode {
         indexeur.setBalles(3);
         indexeur.resetCompartiments();
 
+
     }
+
+
 
     public void start(){
         opModeTimer.resetTimer();
@@ -358,25 +365,25 @@ public class DecodeBlueAutoCoteBase extends OpMode {
         tireurManager.update();
 
         telemetry.addData("path state", pathState.toString());
-        telemetry.addData("x",follower.getPose().getX());
-        telemetry.addData("y",follower.getPose().getY());
-        telemetry.addData("heading",follower.getPose().getHeading());
-        telemetry.addData("Path time", pathTimer.getElapsedTimeSeconds());
+        //telemetry.addData("x",follower.getPose().getX());
+        //telemetry.addData("y",follower.getPose().getY());
+        //telemetry.addData("heading",follower.getPose().getHeading());
+        //telemetry.addData("Path time", pathTimer.getElapsedTimeSeconds());
         telemetry.addData("angle Tourelle actuel", tourelle.lectureangletourelle());
-        telemetry.addData("RPM", intake.getRPM());
-        telemetry.addData("DistanceBalle", intake.getCapteurDistance());
-        telemetry.addData("Lum Indexeur", intake.getLumIndexeur());
-        telemetry.addData("Score", intake.getScore());
-        telemetry.addData("État Indexeur", indexeur.getEtat());
-        telemetry.addData("Pale detectée", indexeur.detectionpale());
-        telemetry.addData("Nombre de balles", indexeur.getBalles());
-        for (int i = 0; i < 3; i++) { telemetry.addData("Compartiment " + i, indexeur.getCouleurCompartiment(i)); }
-        telemetry.addData("État tireur manager", tireurManager.getState());
-        telemetry.addData("État indexeur", indexeur.getEtat());
-        telemetry.addData("Etat de l'intake", intake.getEtat());
+        //telemetry.addData("RPM", intake.getRPM());
+        //telemetry.addData("DistanceBalle", intake.getCapteurDistance());
+        //telemetry.addData("Lum Indexeur", intake.getLumIndexeur());
+        //telemetry.addData("Score", intake.getScore());
+        //telemetry.addData("État Indexeur", indexeur.getEtat());
+        //telemetry.addData("Pale detectée", indexeur.detectionpale());
+        //telemetry.addData("Nombre de balles", indexeur.getBalles());
+        //for (int i = 0; i < 3; i++) { telemetry.addData("Compartiment " + i, indexeur.getCouleurCompartiment(i)); }
+        //telemetry.addData("État tireur manager", tireurManager.getState());
+        //telemetry.addData("État indexeur", indexeur.getEtat());
+        //telemetry.addData("Etat de l'intake", intake.getEtat());
         telemetry.addData("Shooter RPM", shooter.getShooterVelocityRPM());
-        telemetry.addData("Servo pos", servoTireur.getPosition());
-        telemetry.addData("Index rotation finie", indexeur.isRotationTerminee());
+        //telemetry.addData("Servo pos", servoTireur.getPosition());
+        //telemetry.addData("Index rotation finie", indexeur.isRotationTerminee());
 
         telemetry.update();
     }

@@ -12,7 +12,7 @@ public class AngleShooter {
     private double Positionmedium = 0.30;
 
     private double PositionInterMdHaut = 0.40;
-    private double Positionhaute = 0.52;
+    private double Positionhaute = 0.65;
 
     public void init(@NonNull HardwareMap hwMap) {
         AngleShoot = hwMap.get(Servo.class, "AngleShoot");

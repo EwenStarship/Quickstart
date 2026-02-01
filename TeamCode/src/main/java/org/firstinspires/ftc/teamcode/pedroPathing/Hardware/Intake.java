@@ -54,7 +54,7 @@ public class Intake {
     private NormalizedColorSensor ColorIndexeur, ColorIntake;
     private Rev2mDistanceSensor distSensorIndexeur;
 
-    private static final double TICKS_PER_REV_6000 = 145.1;  // ancien valeur 28
+    private static final double TICKS_PER_REV_6000 = 145.1;  // Moteur 1150 RPM
 
     public void init(@NonNull HardwareMap hwMap) {
 

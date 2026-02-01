@@ -24,6 +24,8 @@ public class TestTournerTourelle extends OpMode {
         private ServoTireur servoTireur;
         private Indexeur indexeur;
         private Intake intake;
+    private boolean turretZeroDone = false;
+    private long imuReadySince = 0;
 
         private AfficheurLeft afficheurLeft;
         private AfficheurRight afficheurRight;
@@ -67,7 +69,8 @@ public class TestTournerTourelle extends OpMode {
             servoTireur.init(hardwareMap);            // ✔️ initialisation du servo
             tireurManager = new TireurManager(shooter, tourelle, angleShooter, servoTireur, indexeur, intake, afficheurRight);
             ;
-            telemetry.addLine(">>> Test Tir Auto prêt <<<");
+            //telemetry.addLine(">>> Test Tir Auto prêt <<<");
+            tourelle.resetImuToutelle();
         }
 
 

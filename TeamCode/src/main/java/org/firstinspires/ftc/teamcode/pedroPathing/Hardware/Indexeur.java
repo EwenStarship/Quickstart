@@ -36,6 +36,7 @@ public class Indexeur {
     private NormalizedColorSensor ColorLeft;
     private NormalizedColorSensor ColorRight;
     private String couleurDetecteeTemp = "Inconnue";
+    private boolean bourrageInit = false;
     double hue;
     private static final double TICKS_PER_REV_43 = 3895.9; // GoBilda 5203 43 tours
 
@@ -300,10 +301,36 @@ public class Indexeur {
         // --- LECTURE CONTINUE DE LA COULEUR ---
         String couleurInstant = detectBallColor();
         if (!"Inconnue".equals(couleurInstant)) {
-            couleurDetecteeTemp = couleurInstant;   // meilleure couleur vue
+            couleurDetecteeTemp = couleurInstant;
         }
 
+        // =========================================================
+        // 🚨 NOUVEAU : DETECTION DE BLOCAGE MOTEUR (ANTI-BALLE ÉCRASÉE)
+        // =========================================================
+        double vitesse = Math.abs(indexeur.getVelocity());
+
+        boolean moteurBloque =
+                indexeur.isBusy() &&
+                        vitesse < 3 &&                      // moteur quasi immobile
+                        indexeurtimer.milliseconds() > 1500; // laisse le temps de démarrer
+
+        if (moteurBloque) {
+            indexeurtimer.reset();
+            indexeur.setPower(0);
+            indexeur.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+
+            rotationEnCours = false;
+            rotationPourAmassage = false;
+            rotationPourTir = false;
+
+            IndexeurState = Indexeuretat.BOURRAGE;
+            bourragetimer.reset();
+            return;
+        }
+
+        // =========================================================
         // --- Gestion de la vitesse progressive ---
+        // =========================================================
         if (erreur > 300) {
             indexeur.setPower(0.8);   // loin de la cible → rapide
         } else {
@@ -313,38 +340,38 @@ public class Indexeur {
         // --- RESET DU TIMER D’ERREUR SI ON EST DANS LA TOLÉRANCE ---
         if (erreur < erreurindexeur) {
             erreurTimer.reset();
+            indexeurtimer.reset();
         }
 
         // --- CONDITIONS DE FIN ---
-        boolean finNormale = !indexeur.isBusy();                // RUN_TO_POSITION estime que c'est fini
-        boolean stabiliseDansTol = (erreur < erreurindexeur)    // erreur ok
-                && (erreurTimer.seconds() > 0.15); // stabilité 150ms
+        boolean finNormale = !indexeur.isBusy();
+        boolean stabiliseDansTol = (erreur < erreurindexeur)
+                && (erreurTimer.seconds() > 0.15);
         boolean finParTimerErreur = (erreur >= erreurindexeur)
                 && (erreurTimer.seconds() > ERREUR_TIMEOUT_S);
 
         if (!(finNormale || stabiliseDansTol || finParTimerErreur)) {
-            return;   // pas fini → on continue
+            return;
         }
 
+        // =========================================================
         // --- ROTATION FINIE ---
+        // =========================================================
         indexeur.setPower(0);
         indexeur.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
 
-        // === RECALAGE LOGIQUE SUR ENCODEUR (au bon moment !) ===
         int pos = indexeur.getCurrentPosition();
         int logicalSlot = (int) Math.round(pos / TICKS_PAR_COMPARTIMENT);
 
         positionLogique = logicalSlot;
         compartimentPhysique = Math.floorMod(positionLogique, COMPARTIMENTS);
 
-        // --- CALCUL DES SLOTS ---
         int slotCapteurs = compartimentPhysique;
         int slotTir      = (compartimentPhysique + 1) % COMPARTIMENTS;
         int slotEntree   = (compartimentPhysique + 2) % COMPARTIMENTS;
 
-        // --- UTILISATION DE LA MEILLEURE COULEUR ---
         String couleurSousCapteurs = couleurDetecteeTemp;
-        couleurDetecteeTemp = "Inconnue"; // reset pour prochaine rotation
+        couleurDetecteeTemp = "Inconnue";
 
         couleurBalleDansCompartiment[slotCapteurs] = couleurSousCapteurs;
 
@@ -362,15 +389,12 @@ public class Indexeur {
         } else if (rotationPourTir) {
 
             couleurBalleDansCompartiment[slotTir] = "Inconnue";
-            // (décrément optionnel selon ta logique)
         }
 
-        // --- RESET FLAGS ---
         rotationPourAmassage = false;
         rotationPourTir = false;
         rotationEnCours = false;
 
-        // --- SORTIE D’ÉTAT ---
         IndexeurState = finParTimerErreur ?
                 Indexeuretat.BOURRAGE :
                 Indexeuretat.IDLE;
@@ -383,33 +407,48 @@ public class Indexeur {
 
     public void reculerIndexeurbourrage() {
 
-        // Initialisation au moment d’entrer dans l’état BOURRAGE
-        if (bourragetimer.milliseconds() == 0) {
+
+        if (!bourrageInit) {
+            bourrageInit = true;
             bourragetimer.reset();
+
             indexeur.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-            indexeur.setPower(-0.4);  // recul court pour libérer la balle
+            indexeur.setPower(-0.4);
+            intake.setetatEJECTION();
+
+            // Probable perte d'une balle
+            ballComptage = Math.max(ballComptage - 1, 0);
         }
 
-        // Recul pendant 600 ms
         if (bourragetimer.milliseconds() > 600) {
 
-            // Stop
             indexeur.setPower(0);
-            indexeur.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
 
-            bourragetimer.reset();
 
-            // Si on a encore de la place → continuer l’amassage automatiquement
-            if (ballComptage < MAX_BALLS) {
-                rotationPourAmassage = true;
-                rotationEnCours = false;
-                IndexeurState = Indexeuretat.AVANCERAPIDEAMASSAGE;
-            }
-            // Sinon → rester tranquille
-            else {
-                IndexeurState = Indexeuretat.IDLE;
-            }
+            // =====================================================
+            // 🔧 RECALAGE BASÉ SUR LA POSITION LOGIQUE, PAS ENCODEUR
+            // =====================================================
+
+            // On considère que le compartiment courant est foireux
+            // donc on avance logiquement d’un cran propre
+            positionLogique += 1;
+
+            int prochainSlotLogique = positionLogique;
+            int targetTicks = (int) Math.round(prochainSlotLogique * TICKS_PAR_COMPARTIMENT);
+
+            indexeur.setTargetPosition(targetTicks);
+            indexeur.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+            indexeur.setPower(0.35);   // mouvement doux
+
+            rotationEnCours = true;
+            rotationPourAmassage = false;
+            rotationPourTir = false;
+            indexeurtimer.reset();
+
+            IndexeurState = Indexeuretat.IDLE;
+            bourrageInit = false;
         }
+
     }
 
     public boolean avanceTerminee() {
