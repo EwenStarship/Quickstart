@@ -72,7 +72,6 @@ public class TestServoTireur extends OpMode {
         }
 
 
-
     @Override
         public void loop() {
             //tourelle.allerVersAngle(45);

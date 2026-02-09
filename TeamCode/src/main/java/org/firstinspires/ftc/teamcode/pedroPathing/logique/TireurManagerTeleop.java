@@ -23,6 +23,11 @@ public class TireurManagerTeleop {
     private final Intake intake;
     private double angleCibleTourelle = 0;
     private boolean tirAutoActif = false;
+    private static final int TOL_STRICT_TICKS = 50;
+
+    // Données caméra éventuelles (injetées depuis le TeleOp)
+    private Double txCamera = null;
+    private boolean cameraHasTag = false;
 
     private final AfficheurRight afficheurRight;
 
@@ -32,31 +37,32 @@ public class TireurManagerTeleop {
         SHOOTER_SPINUP,
         TURRET_POSITION,
         ANGLE_POSITION,
+        align_tourelletermine,
         SERVO_PUSH,
         SERVO_RETRACT,
         INDEX_ADVANCE,
         WAIT_AFTER_INDEX,
         AVANCE1TIR,
+        align_camera,
         AFTERWAIT_INDEX
     }
 
     private TirState state = TirState.IDLE;
     private final ElapsedTime timer = new ElapsedTime();
-    private int tirsEffectues = 0;
 
+    private int tirsEffectues = 0;
     private int shotsRemaining = 0;
 
     private double Min_shooterRPM = 4000;
     private double toleranceVelocityMax;
     private double toleranceVelocityMin;
+    private boolean prespinActif = false;
+    private double prespinRPM = 0;
     private double TargetFlyWheelRPM = 4700;
 
     // --- Rampe pour le shooter (sans modifier PIDF) ---
     private double rampedShooterRPM = 0;
     private final ElapsedTime dtShooter = new ElapsedTime();
-
-    // Slew rate en RPM/s (20k RPM/s = super rapide)
-    private double maxRpmSlewPerSecond = 20000;
 
     // Kick anti-collage
     private boolean kickActiveShooter = false;
@@ -103,14 +109,31 @@ public class TireurManagerTeleop {
         switch (state) {
 
             case IDLE: {
-                // IMPORTANT : ramener doucement à 0 via la rampe
-                shooter.setShooterTargetRPM(0);
+                if (prespinActif) {
+                    shooter.setShooterTargetRPM(rampShooterRPM(prespinRPM));
+                } else {
+                    shooter.setShooterTargetRPM(0);
+                }
+                break;
+            }
+
+            case TURRET_POSITION: {
+                double rpmCmd = rampShooterRPM(vitesseCibleShooter);
+                shooter.setShooterTargetRPM(rpmCmd);
+
+                tourelle.allerVersAngle(angleCibleTourelle);
+                if (tourelle.isAtAngle(angleCibleTourelle)) {
+                    timer.reset();
+                    tirAutoActif = false;
+                    state = TirState.ANGLE_POSITION;
+                }
                 break;
             }
 
             case AVANCE1TIR: {
                 double rpmCmd = rampShooterRPM(vitesseCibleShooter);
                 shooter.setShooterTargetRPM(rpmCmd);
+                stopPrespin();
 
                 if (!indexeur.isHomingDone()) {
                     indexeur.lancerHoming();
@@ -128,62 +151,76 @@ public class TireurManagerTeleop {
                 double rpmCmd = rampShooterRPM(vitesseCibleShooter);
                 shooter.setShooterTargetRPM(rpmCmd);
 
+                // 1) Commande du volet
                 ServoAngleShoot.setAngle(angleCibleShooter);
-                if (ServoAngleShoot.isAtAngle(angleCibleShooter)) {
-                    timer.reset();
-                    state = TirState.SHOOTER_SPINUP;
+
+                // 2) Vérification indexeur : s’il n’est PAS calé → correction → rester ici
+                if (!indexeur.indexeurPretPourTir()) {
+                    indexeur.microCorrigerVersCible(0.20);
+                    return;   // rester dans ANGLE_POSITION
                 }
+
+                // 3) Vérification du volet : s’il n’est PAS calé → attendre → rester ici
+                if (!ServoAngleShoot.isAtAngle(angleCibleShooter)) {
+                    return;   // on attend qu’il se cale
+                }
+
+                // 4) Les DEUX sont calés → on peut avancer
+                timer.reset();
+                state = TirState.SHOOTER_SPINUP;
                 break;
             }
 
             case SHOOTER_SPINUP: {
+                stopPrespin();
                 double rpmCmd = rampShooterRPM(vitesseCibleShooter);
                 shooter.setShooterTargetRPM(rpmCmd);
 
+                // tolérances RPM dynamiques
+
                 if (vitesseCibleShooter < 4000) {
-                    toleranceVelocityMin = 0.95 * vitesseCibleShooter;
+                    toleranceVelocityMin = 0.94 * vitesseCibleShooter;
                     toleranceVelocityMax = 1.08 * vitesseCibleShooter;
                 }
                 else if (vitesseCibleShooter < 4400) {
-                    toleranceVelocityMin = 0.94 * vitesseCibleShooter;
-                    toleranceVelocityMax = 1.06 * vitesseCibleShooter;
+                    toleranceVelocityMin = 0.93 * vitesseCibleShooter;
+                    toleranceVelocityMax = 1.07 * vitesseCibleShooter;
                 }
                 else {
                     toleranceVelocityMin = 0.93 * vitesseCibleShooter;
                     toleranceVelocityMax = 1.05 * vitesseCibleShooter;
                 }
+
                 if ((shooter.getShooterVelocityRPM() > toleranceVelocityMin)
                         && (shooter.getShooterVelocityRPM() < toleranceVelocityMax)
                         && !indexeur.isindexeurBusy()) {
-                    timer.reset();
+
+                    // Alignement indexeur OK → on entre dans SERVO_PUSH
+                    timer.reset();                 // reset à l’entrée de SERVO_PUSH
                     state = TirState.SERVO_PUSH;
                 }
                 break;
             }
 
             case SERVO_PUSH: {
-                if (!indexeur.isHomingDone()) {
-                    indexeur.lancerHoming();
-                    return;
-                }
-                if (indexeur.isHomingDone()) {
-                    servoTireur.push();
-                    if (timer.milliseconds() > 380) {
-                        timer.reset();
-                        indexeur.decrementerBalle();
-                        state = TirState.SERVO_RETRACT;
-                    }
+                // Timer a été reset AVANT d'entrer dans cet état
+                servoTireur.push();
+
+                // 200 ms → décrémenter et passer en retract
+                if (timer.milliseconds() > 200) {
+                    indexeur.decrementerBalle();  // décrémentation UNIQUE
+                    timer.reset();                // reset à l’entrée de SERVO_RETRACT
+                    state = TirState.SERVO_RETRACT;
                 }
                 break;
             }
 
             case SERVO_RETRACT: {
+                // Timer reset à l’entrée de l'état précédent
                 servoTireur.retract();
-                if (timer.milliseconds() > 250) {
-                    timer.reset();
-                    if (shotsRemaining > 0) {
-                        shotsRemaining--;
-                    }
+                if (timer.milliseconds() > 150) {
+                    timer.reset();                // reset à l’entrée de l’état suivant
+                    if (shotsRemaining > 0) shotsRemaining--;
                     tirsEffectues++;
                     state = TirState.INDEX_ADVANCE;
                 }
@@ -191,7 +228,7 @@ public class TireurManagerTeleop {
             }
 
             case INDEX_ADVANCE: {
-                if (shotsRemaining > 0) {
+                if (shotsRemaining == 0) {
                     shooter.setShooterTargetRPM(0);
                     intake.repriseApresTir();
                     state = TirState.IDLE;
@@ -204,39 +241,31 @@ public class TireurManagerTeleop {
             }
 
             case WAIT_AFTER_INDEX: {
-                if (timer.milliseconds() > 120) {
+                if (timer.milliseconds() > 10) {
                     state = TirState.AFTERWAIT_INDEX;
                 }
                 break;
             }
 
             case AFTERWAIT_INDEX: {
+                checkIndexeurCoherence();
                 if (indexeur.isRotationTerminee()) {
                     if (shotsRemaining > 0) {
+
+                        // fenêtre stricte
+                        if (!indexeur.indexeurPretPourTir()) {
+                            indexeur.microCorrigerVersCible(0.20);
+                            return;   // correctif : évite de perdre un tir
+                        }
+                        timer.reset();             // reset à l’entrée de SERVO_PUSH
                         state = TirState.SERVO_PUSH;
+
                     } else {
                         shooter.setShooterTargetRPM(0);
                         intake.repriseApresTir();
                         tirEnCours = false;
                         state = TirState.IDLE;
                     }
-                }
-                //if (indexeur.isRotationTerminee()) {
-                //    timer.reset();
-                //    state = TirState.ANGLE_POSITION;
-                //}
-                break;
-            }
-
-            case TURRET_POSITION: {
-                double rpmCmd = rampShooterRPM(vitesseCibleShooter);
-                shooter.setShooterTargetRPM(rpmCmd);
-
-                tourelle.allerVersAngle(angleCibleTourelle);
-                if (tourelle.isAtAngle(angleCibleTourelle)) {
-                    timer.reset();
-                    tirAutoActif = false;
-                    state = TirState.ANGLE_POSITION;
                 }
                 break;
             }
@@ -263,6 +292,7 @@ public class TireurManagerTeleop {
         intake.arretPourTir();
         tirEnCours = true;
         shotsRemaining = 1;
+        prespinActif = false;
         this.angleCibleShooter = angleShooter;
         this.vitesseCibleShooter = vitesseShooter;
         tirsEffectues = 0;
@@ -278,6 +308,7 @@ public class TireurManagerTeleop {
         intake.arretPourTir();
         tirAutoActif = true;
         tirEnCours = true;
+        prespinActif = false;
         shotsRemaining = 3;
         this.angleCibleTourelle = angleTourelle;
         this.angleCibleShooter = angleShooter;
@@ -314,27 +345,21 @@ public class TireurManagerTeleop {
 
         double currentRPM = shooter.getShooterVelocityRPM();
 
-        // ==============================
         // 🚀 PAS DE RAMPE AU-DESSUS DE 4000
-        // ==============================
         if (targetRPM >= 4000) {
             rampedShooterRPM = targetRPM;   // reset rampe pour éviter dérive
             kickActiveShooter = false;
             return targetRPM;
         }
 
-        // ==============================
-        // 🛑 STOP DIRECT SI ON COUPE
-        // ==============================
+        // STOP DIRECT SI ON COUPE
         if (targetRPM <= 0) {
             rampedShooterRPM = 0;
             kickActiveShooter = false;
             return 0;
         }
 
-        // ==============================
-        // ⚡ KICK de démarrage bas régime
-        // ==============================
+        // KICK de démarrage bas régime
         if (currentRPM < KICK_MIN_RPM && rampedShooterRPM < KICK_MIN_RPM * 0.8) {
             if (!kickActiveShooter) {
                 kickActiveShooter = true;
@@ -350,9 +375,8 @@ public class TireurManagerTeleop {
                 kickActiveShooter = false;
             }
         }
-        // ==============================
-        // 🧠 RAMPE UNIQUEMENT BASSE VITESSE
-        // ==============================
+
+        // RAMPE UNIQUEMENT BASSE VITESSE
         double slewUp   = 3500;   // montée douce pour 3800
         double slewDown = 12000;  // descente rapide
 
@@ -368,15 +392,45 @@ public class TireurManagerTeleop {
 
         return rampedShooterRPM;
     }
-    public void shotsRemaining(int nb) {shotsRemaining = nb;}
+
+    public void shotsRemaining(int nb) { shotsRemaining = nb; }
 
     public void cancelTir() {
         shotsRemaining = 0;
         tirEnCours = false;
+        prespinActif = false;
         servoTireur.retract();
         shooter.setShooterTargetRPM(0);
         intake.repriseApresTir();
         state = TirState.IDLE;
     }
 
+    public void prespinShooter(double rpm) {
+        prespinRPM = rpm;
+        prespinActif = true;
+    }
+
+    public void stopPrespin() {
+        prespinActif = false;
+    }
+
+    private void checkIndexeurCoherence() {
+        if (!indexeur.isHomingDone()) return;         // pas de check tant que non calé
+        if (indexeur.isindexeurBusy()) return;        // laisse finir la rotation
+
+        int err = indexeur.getPositionErreurTicks();
+        if (err > TOL_STRICT_TICKS) {
+            // Correction douce vers la cible planifiée
+            indexeur.microCorrigerVersCible(0.25);
+        }
+    }
+
+    public boolean isPrespinActif() {
+        return prespinActif;
+    }
+
+    public void updateCameraData(Double tx, boolean hasTag) {
+        this.txCamera = tx;
+        this.cameraHasTag = hasTag;
+    }
 }

@@ -14,6 +14,7 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 
 public class Indexeur {
     private boolean rotationPourAmassage = false;
+    private static final boolean HOMING_APRES_BOURRAGE = true;
 
     // Timer d'erreur (temps passé avec une erreur >= tolérance)
     private final ElapsedTime erreurTimer = new ElapsedTime();
@@ -249,6 +250,14 @@ public class Indexeur {
             indexeur.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
             indexeur.setMode(DcMotor.RunMode.RUN_USING_ENCODER); // mode normal
             homingDone = true;
+            positionLogique = 0;
+            compartimentPhysique = 0;
+            rotationEnCours = false;
+            rotationPourAmassage = false;
+            rotationPourTir = false;
+            bourrageInit = false;
+            homingDone = true;
+
             IndexeurState = Indexeuretat.IDLE;
 
             }
@@ -282,8 +291,9 @@ public class Indexeur {
         compartimentPhysique = Math.floorMod(positionLogique, COMPARTIMENTS);
 
         indexeur.setTargetPosition(targetTicks);
+        indexeur.setTargetPositionTolerance(erreurindexeur); // verifier l'ecat
         indexeur.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-        indexeur.setPower(0.5);
+        indexeur.setPower(0.6);
 
         indexeurtimer.reset();
         erreurTimer.reset();
@@ -332,9 +342,9 @@ public class Indexeur {
         // --- Gestion de la vitesse progressive ---
         // =========================================================
         if (erreur > 300) {
-            indexeur.setPower(0.8);   // loin de la cible → rapide
+            indexeur.setPower(1);   // loin de la cible → rapide
         } else {
-            indexeur.setPower(0.5);   // proche → lent et stable
+            indexeur.setPower(0.6);   // proche → lent et stable
         }
 
         // --- RESET DU TIMER D’ERREUR SI ON EST DANS LA TOLÉRANCE ---
@@ -406,8 +416,6 @@ public class Indexeur {
     }
 
     public void reculerIndexeurbourrage() {
-
-
         if (!bourrageInit) {
             bourrageInit = true;
             bourragetimer.reset();
@@ -420,35 +428,20 @@ public class Indexeur {
             ballComptage = Math.max(ballComptage - 1, 0);
         }
 
-        if (bourragetimer.milliseconds() > 600) {
-
+        if (bourragetimer.milliseconds() > 500) {
+            // Fin du recul : on stoppe et on lance un HOMING
             indexeur.setPower(0);
+            indexeur.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
 
-
-            // =====================================================
-            // 🔧 RECALAGE BASÉ SUR LA POSITION LOGIQUE, PAS ENCODEUR
-            // =====================================================
-
-            // On considère que le compartiment courant est foireux
-            // donc on avance logiquement d’un cran propre
-            positionLogique += 1;
-
-            int prochainSlotLogique = positionLogique;
-            int targetTicks = (int) Math.round(prochainSlotLogique * TICKS_PAR_COMPARTIMENT);
-
-            indexeur.setTargetPosition(targetTicks);
-            indexeur.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-            indexeur.setPower(0.35);   // mouvement doux
-
-            rotationEnCours = true;
+            rotationEnCours = false;
             rotationPourAmassage = false;
             rotationPourTir = false;
-            indexeurtimer.reset();
 
-            IndexeurState = Indexeuretat.IDLE;
+            // ➜ Homing
+            lancerHoming();            // passe l'état à HOMING et flag homingDemarre = true
             bourrageInit = false;
+            return;
         }
-
     }
 
     public boolean avanceTerminee() {
@@ -472,7 +465,7 @@ public class Indexeur {
     /** * Getter pour accéder directement au moteur si besoin */
     public DcMotor getindexeurMotor() {
         return indexeur;}
-    private static final int TOLERANCE_TIR = 15;
+    private static final int TOLERANCE_TIR = 10;
     public boolean indexeurPretPourTir() {
         if (indexeur == null)
             return false;
@@ -545,7 +538,19 @@ public class Indexeur {
             couleurBalleDansCompartiment[i] = "Inconnue";
         }
     }
+    // --- Exposer cible & position réelle ---
+    public int getTargetTicks() { return targetTicks; }
+    public int getCurrentTicks() { return indexeur.getCurrentPosition(); }
+    public int getPositionErreurTicks() { return Math.abs(getCurrentTicks() - getTargetTicks()); }
 
+    // --- Micro-correction douce vers la cible planifiée ---
+    public void microCorrigerVersCible(double power) {
+        if (indexeur.isBusy()) return;  // ne pas perturber une rotation en cours
+        indexeur.setTargetPosition(targetTicks);
+        indexeur.setTargetPositionTolerance(erreurindexeur); // ~30 ticks chez toi
+        indexeur.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+        indexeur.setPower(power); // 0.2–0.3 : doux, limite l’overshoot
+    }
 
 }
 

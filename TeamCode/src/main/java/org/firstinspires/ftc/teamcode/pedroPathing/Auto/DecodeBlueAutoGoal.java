@@ -18,7 +18,9 @@ import org.firstinspires.ftc.teamcode.pedroPathing.Hardware.ServoTireur;
 import org.firstinspires.ftc.teamcode.pedroPathing.Hardware.Shooter;
 import org.firstinspires.ftc.teamcode.pedroPathing.Hardware.SpinTurret;
 import org.firstinspires.ftc.teamcode.pedroPathing.TeleOp.TeleOpDecode;
+import org.firstinspires.ftc.teamcode.pedroPathing.TeleOp.TeleOpDecodeBleuCamera;
 import org.firstinspires.ftc.teamcode.pedroPathing.logique.TireurManager;
+import org.firstinspires.ftc.teamcode.pedroPathing.navigation.GlobalPoseStorage;
 
 
 @Autonomous (name="BLEU--GOAL", group="Competition")
@@ -70,17 +72,17 @@ public class DecodeBlueAutoGoal extends OpMode {
     private final Pose firstshootPose = new Pose(58,84,Math.toRadians(135));
 
     private final Pose Tourne1= new Pose (62,89, Math.toRadians(180));
-    private final Pose drivetoligne1= new Pose (45.70, 90.00, Math.toRadians(180));
+    private final Pose drivetoligne1= new Pose (45.50, 91.00, Math.toRadians(180));
 
-    private final Pose avalerballeRangee1 = new Pose (20.5, 90.50, Math.toRadians(180));
+    private final Pose avalerballeRangee1 = new Pose (20.0, 91.80, Math.toRadians(180));
 
-    private final Pose Shoot2 = new Pose (51.50, 84.00, Math.toRadians(180));
+    private final Pose Shoot2 = new Pose (51.80, 84.70, Math.toRadians(180));
 
-    private final Pose Shoot3 = new Pose (50.50, 84.00, Math.toRadians(180));
+    private final Pose Shoot3 = new Pose (51.80, 84.70, Math.toRadians(180));
 
-    private final Pose drivetoligne2= new Pose (46.00, 70.00, Math.toRadians(180));
+    private final Pose drivetoligne2= new Pose (44.40, 73.00, Math.toRadians(180));
 
-    private final Pose avalerballeRangee2= new Pose (18.00, 66.50, Math.toRadians(180));
+    private final Pose avalerballeRangee2= new Pose (13.5, 66.00, Math.toRadians(180));
 
     private final Pose Gate= new Pose (14, 70, Math.toRadians(-90));
 
@@ -160,19 +162,19 @@ public class DecodeBlueAutoGoal extends OpMode {
                 //intake.update();
 
                 //indexeur.update();
-                if (!follower.isBusy()&& pathTimer.getElapsedTimeSeconds()>0.7) {
+                if (!follower.isBusy()&& pathTimer.getElapsedTimeSeconds()>1.0) {
                     // avons nous deja demandé des tirs :
 
                     if (!shotsTriggered){
                         tireurManager.stopPrespin();
                         tireurManager.startTirAuto(// Lancer tir automatique
-                                -2,   // angle tourelle (exemple)
+                                -5,   // angle tourelle (exemple)
                                 0.45,  // angle shooter
                                 4000   // RPM
                         );
                         shotsTriggered = true;}
                     else if (shotsTriggered && !tireurManager.isBusy()){
-                            setPathState(PathState.Tourne1);
+                            setPathState(PathState.align_RANGEE1Blue);
                             shotsTriggered = false;
                         }
 
@@ -185,7 +187,7 @@ public class DecodeBlueAutoGoal extends OpMode {
                 indexeur.update();
                 if (!follower.isBusy()) {
                     //follower.turn(45,false);
-                    follower.turnDegrees(45,true);
+                    //follower.turnDegrees(45,true);
                     //follower.followPath(driveTourne1 ,0.8, false);
                     telemetry.addLine("Done with Shooting 1, tourner vers premiere rangée");
                     // transition to next state
@@ -202,7 +204,7 @@ public class DecodeBlueAutoGoal extends OpMode {
                 if (!follower.isBusy()) {
                     telemetry.addLine("Done with Shooting 1, deplacement vers premiere rangée");
                     // transition to next state
-                    follower.followPath(driveShoot2pickup1Pos ,0.9, false); // chemin d'alignement de la premiere rangée
+                    follower.followPath(driveShoot2pickup1Pos ,0.8, false); // chemin d'alignement de la premiere rangée
                     setPathState(PathState.intakeballeRangee1); // on va a l'étape suivante
                 }
                 break;
@@ -213,7 +215,7 @@ public class DecodeBlueAutoGoal extends OpMode {
                 indexeur.update();
 
                 if (!follower.isBusy()) {// attendre que le path soit fini
-                    follower.followPath(driveAvalerpremiereLigne,0.37,false); // on avance doucement pour avaler les balles
+                    follower.followPath(driveAvalerpremiereLigne,0.40,false); // on avance doucement pour avaler les balles
                     setPathState(PathState.DrivedeuxiemeShoot);
                     }
                 break;
@@ -221,7 +223,7 @@ public class DecodeBlueAutoGoal extends OpMode {
             case DrivedeuxiemeShoot:
                 ;
                 if (!follower.isBusy()) { // Attendre que l'on est fini d'avoir pris toutes les balles
-                    follower.followPath(DrivedeuxiemeShoot,0.80,true);
+                    follower.followPath(DrivedeuxiemeShoot,0.60,true);
                     // Le robot est arrivé en position de tir :
                     setPathState(PathState.deuxiemetir);
                     tireurManager.prespinShooter(4000);
@@ -229,12 +231,12 @@ public class DecodeBlueAutoGoal extends OpMode {
                 break;
 
             case deuxiemetir:
-                if (!follower.isBusy()&& pathTimer.getElapsedTimeSeconds()>1) {
+                if (!follower.isBusy()&& pathTimer.getElapsedTimeSeconds()>1.5) {
                     if (!shotsTriggered) { // deuxieme période de tir
                         tireurManager.stopPrespin();
                         tireurManager.startTirAuto(// Lancer tir automatique
-                                -5,   // angle tourelle (exemple)
-                                0.45,  // angle shooter
+                                -8,   // angle tourelle (exemple)
+                                0.48,  // angle shooter
                                 4080   // RP
                                 // M
                         );
@@ -264,7 +266,7 @@ public class DecodeBlueAutoGoal extends OpMode {
                 intake.update(); // mise à jour de nos systemes (constate que toutes les balles sont parties)
                 indexeur.update();
                 if (!follower.isBusy()) {
-                    follower.followPath(drivetavalerdeuxiemeligne, 0.40 , false);
+                    follower.followPath(drivetavalerdeuxiemeligne, 0.38 , false);
                     // TO DO demarer intake , tourner indexeur des dectetion balles)
                     telemetry.addLine("ramassage 2 terminé");
                     // transition to next state
@@ -277,7 +279,7 @@ public class DecodeBlueAutoGoal extends OpMode {
                 intake.update(); // mise à jour de nos systemes (constate que toutes les balles sont parties)
                 indexeur.update();
                 if (!follower.isBusy()) {
-                    follower.followPath(driveAvaler2emeLignetotroisemeShoot,0.80, true);
+                    follower.followPath(driveAvaler2emeLignetotroisemeShoot,0.60, true);
                     // TO DO demarer intake , tourner indexeur des dectetion balles)
                     telemetry.addLine("Position 3 de tir");
                     // transition to next state
@@ -287,15 +289,15 @@ public class DecodeBlueAutoGoal extends OpMode {
                 break;
 
             case troisiemetir:
-                if (!follower.isBusy()&& pathTimer.getElapsedTimeSeconds()>1) {
+                if (!follower.isBusy()&& pathTimer.getElapsedTimeSeconds()>1.5) {
                     TeleOpDecode.startingPose = follower.getPose();
                     // le robot est arrivé sur la troisieme position de tir :
 
                     if (!shotsTriggered){
                         tireurManager.stopPrespin();
                         tireurManager.startTirAuto(// Lancer tir automatique
-                                -10,   // angle tourelle (exemple)
-                                0.50,  // angle shooter
+                                -12,   // angle tourelle (exemple)
+                                0.48,  // angle shooter
                                 4080   // RPM
                         );
                         shotsTriggered = true;}
@@ -323,10 +325,12 @@ public class DecodeBlueAutoGoal extends OpMode {
 
                 
             case atgate:
-                tourelle.allerVersAngle(15);;
+                tourelle.allerVersAngle(35);;
+
                 telemetry.addLine("C'est fini, position enregitrée");
                 break;
         }
+
 
     }
 
@@ -421,7 +425,9 @@ public class DecodeBlueAutoGoal extends OpMode {
     }
 
     public void stop() {
-        TeleOpDecode.startingPose = follower.getPose();
+
+        TeleOpDecodeBleuCamera.startingPose = follower.getPose();
+        GlobalPoseStorage.turretAngleDeg = tourelle.lectureangletourelle();
 
     }
 

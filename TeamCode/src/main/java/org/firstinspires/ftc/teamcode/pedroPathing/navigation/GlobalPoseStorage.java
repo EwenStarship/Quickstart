@@ -6,4 +6,6 @@ import java.net.PortUnreachableException;
 
 public class GlobalPoseStorage {
     public static Pose currentPose = new Pose();
+    public static double turretAngleDeg = 0.0;
+
 }

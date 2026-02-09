@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamcode.pedroPathing.TeleOp.Debug;
 
+import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
 import org.firstinspires.ftc.teamcode.pedroPathing.Hardware.AfficheurLeft;
@@ -13,6 +14,7 @@ import org.firstinspires.ftc.teamcode.pedroPathing.Hardware.ServoTireur;
 import org.firstinspires.ftc.teamcode.pedroPathing.logique.TireurManager;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 
+@Disabled
 @TeleOp(name="Test Tir Auto", group="debug")
 
 public class TestTirAuto extends OpMode {

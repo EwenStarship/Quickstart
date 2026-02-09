@@ -71,9 +71,9 @@ public class DecodeRedAutoCoteBase extends OpMode {
 
     private final Pose avalerballeRangee3 = new Pose (130.00, 35.00, Math.toRadians(0));
 
-    private final Pose drivetoligne2= new Pose (101.00, 53.00, Math.toRadians(0));
+    private final Pose drivetoligne2= new Pose (101.20, 52.90, Math.toRadians(0));
 
-    private final Pose avalerballeRangee2= new Pose (125.00, 57.00, Math.toRadians(0));
+    private final Pose avalerballeRangee2= new Pose (125.10, 56.90, Math.toRadians(0));
     private final Pose Shoot2 = new Pose (94.00, 78.00, Math.toRadians(0));
     private final Pose avalerballeRangee1 = new Pose (103.00, 104.00, Math.toRadians(0));
 
@@ -141,6 +141,7 @@ public class DecodeRedAutoCoteBase extends OpMode {
         switch(pathState) {
             case DRIVE_STARTPOSITIONTOSHOOT:
                 follower.followPath(driveStartofirstShootPos,0.8, true); //true will hold the positon
+                tireurManager.prespinShooter(4000);
                 setPathState(PathState.PremierTir); // Reset Timer + make new staet
                 break;
 
@@ -151,9 +152,10 @@ public class DecodeRedAutoCoteBase extends OpMode {
                     // avons nous deja demandé des tirs :
 
                     if (!shotsTriggered){
+                        tireurManager.stopPrespin();
                         tireurManager.startTirAuto(// Lancer tir automatique
-                                69,   // angle tourelle (exemple)
-                                0.62,  // angle shooter
+                                67.0,   // angle tourelle (exemple)
+                                0.59,  // angle shooter
                                 4780   // RPM
                         );
                         shotsTriggered = true;}
@@ -194,6 +196,7 @@ public class DecodeRedAutoCoteBase extends OpMode {
                 ;
                 if (!follower.isBusy()) { // Attendre que l'on est fini d'avoir pris toutes les balles
                     follower.followPath(DrivedeuxiemeShoot,0.67,true);
+                    tireurManager.prespinShooter(4000);
                     // Le robot est arrivé en position de tir :
                     setPathState(PathState.deuxiemetir);
 
@@ -203,9 +206,10 @@ public class DecodeRedAutoCoteBase extends OpMode {
             case deuxiemetir:
                 if (!follower.isBusy()&& pathTimer.getElapsedTimeSeconds()>0.7) {
                     if (!shotsTriggered) { // deuxieme période de tir
+                        tireurManager.stopPrespin();
                         tireurManager.startTirAuto(// Lancer tir automatique
-                                62,   // angle tourelle (exemple)
-                                0.6,  // angle shooter
+                                67,   // angle tourelle (exemple)
+                                0.59,  // angle shooter
                                 4780   // RPM
                         );
                         shotsTriggered = true;
@@ -234,7 +238,7 @@ public class DecodeRedAutoCoteBase extends OpMode {
                 intake.update(); // mise à jour de nos systemes (constate que toutes les balles sont parties)
                 indexeur.update();
                 if (!follower.isBusy()) {
-                    follower.followPath(drivetavalerdeuxiemeligne, 0.47 , true);
+                    follower.followPath(drivetavalerdeuxiemeligne, 0.35 , false);
                     // TO DO demarer intake , tourner indexeur des dectetion balles)
                     telemetry.addLine("ramassage 2 terminé");
                     // transition to next state
@@ -247,6 +251,7 @@ public class DecodeRedAutoCoteBase extends OpMode {
                 indexeur.update();
                 if (!follower.isBusy()) {
                     follower.followPath(driveAvaler2emeLignetotroisemeShoot,0.9, true);
+                    tireurManager.prespinShooter(4000);
                     // TO DO demarer intake , tourner indexeur des dectetion balles)
                     telemetry.addLine("Position 3 de tir");
                     // transition to next state
@@ -255,12 +260,14 @@ public class DecodeRedAutoCoteBase extends OpMode {
                 break;
 
             case troisiemetir:
-                if (!follower.isBusy()&& pathTimer.getElapsedTimeSeconds()>0.5) {
+                if (!follower.isBusy()&& pathTimer.getElapsedTimeSeconds()>1.5) {
                     // le robot est arrivé sur la troisieme position de tir :
 
                     if (!shotsTriggered){
+                        tireurManager.stopPrespin();
+
                         tireurManager.startTirAuto(// Lancer tir automatique
-                                57,   // angle tourelle (exemple)
+                                52,   // angle tourelle (exemple)
                                 0.37,  // angle shooter
                                 3960   // RPM
                         );
@@ -277,16 +284,12 @@ public class DecodeRedAutoCoteBase extends OpMode {
                 indexeur.update();
                 // shoot logique 3eme Tir
                 if (!follower.isBusy() && pathTimer.getElapsedTimeSeconds()>1) {
-                    tourelle.allerVersAngle(0);
-                    if (tourelle.isAtAngle(0)) {
-                        shotsTriggered = false;
-                        setPathState(PathState.atgate);
-                        ;
+                    setPathState(PathState.atgate);
                     }
-                }
                 break;
 
             case atgate:
+                tourelle.allerVersAngle(0);
                 telemetry.addLine("C'est fini");
                 break;
         }

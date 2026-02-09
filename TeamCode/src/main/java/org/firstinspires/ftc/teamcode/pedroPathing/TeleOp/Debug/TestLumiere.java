@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamcode.pedroPathing.TeleOp.Debug;
 
+import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
@@ -13,6 +14,7 @@ import org.firstinspires.ftc.teamcode.pedroPathing.Hardware.Shooter;
 import org.firstinspires.ftc.teamcode.pedroPathing.Hardware.SpinTurret;
 import org.firstinspires.ftc.teamcode.pedroPathing.logique.TireurManager;
 
+@Disabled
 @TeleOp(name="Test Lumiere", group="debug")
 
 public class TestLumiere extends OpMode {
